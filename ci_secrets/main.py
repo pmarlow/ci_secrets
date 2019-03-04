@@ -35,7 +35,3 @@ def _scan_string(line, plugins):
 		results = plugin.analyze_string(line,0,'does not matter')
 		for result in results:
 			print(result.type, result.secret_hash)
-
-
-
-main()
