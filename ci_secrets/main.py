@@ -25,10 +25,6 @@ def check_diff_for_secrets(diff):
 	plugins = [detect_secrets.plugins.aws.AWSKeyDetector(),detect_secrets.plugins.private_key.PrivateKeyDetector()]
 	_scan_string(diff.decode('utf-8'), plugins)
 
-
-
-
-
 def _scan_string(line, plugins):
 	#print("LINE: ",line)
 	for plugin in plugins:
