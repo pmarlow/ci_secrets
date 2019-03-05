@@ -1,14 +1,20 @@
 import argparse
+import logging
 from git import Repo
 import detect_secrets.plugins.aws
 import detect_secrets.plugins.private_key
 
+logging.basicConfig(format='%(asctime)s %(message)s',level=logging.WARNING)
+logger = logging.getLogger(__name__)
+
 def main():
-	print("Hello")
+	logger.debug("Hello")
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--path", dest="path")
 	parser.add_argument("--since", dest="sinceCommit")
+	parser.add_argument("--log", dest="log_level")
 	args = parser.parse_args()
+	set_log_level(args.log_level)
 	repo = Repo(args.path)
 	commit = repo.head.ref.commit
 	while commit.hexsha != args.sinceCommit:
@@ -16,18 +22,26 @@ def main():
 		commit = commit.parents[0]
 
 def check_commit_for_secrets(commit):
-	print("*"*50,commit.hexsha)
+	logger.info(("*"*20)+commit.hexsha+("*"*20))
 	for diffs in commit.diff(commit.parents[0], create_patch=True):
-		check_diff_for_secrets(diffs.diff)
+		check_diff_for_secrets(diffs.diff, commit.hexsha)
 
-def check_diff_for_secrets(diff):
-	#print(diff)
+def check_diff_for_secrets(diff, commit_sha):
+	diff_string = diff.decode('utf-8')
+	logger.debug("DIFF: "+diff_string)
 	plugins = [detect_secrets.plugins.aws.AWSKeyDetector(),detect_secrets.plugins.private_key.PrivateKeyDetector()]
-	_scan_string(diff.decode('utf-8'), plugins)
+	_scan_string(diff_string, plugins, commit_sha)
 
-def _scan_string(line, plugins):
-	#print("LINE: ",line)
+def _scan_string(line, plugins, commit_sha):
+	logger.debug("LINE: "+line)
 	for plugin in plugins:
 		results = plugin.analyze_string(line,0,'does not matter')
 		for result in results:
-			print(result.type, result.secret_hash)
+			print("{type} ({hash}) at commit {commit}".format(type=result.type,hash=result.secret_hash,commit=commit_sha))
+
+def set_log_level(log_level):
+	if log_level is not None:
+		numeric_log_level = getattr(logging, log_level.upper(), None)
+		if not isinstance(numeric_log_level, int):
+			raise ValueError('Invalid log level: %s' % log_level)
+		logger.setLevel(numeric_log_level)
