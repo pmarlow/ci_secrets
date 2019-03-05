@@ -6,4 +6,9 @@ setup(name='ci_secrets',
       author='Phillip Marlow',
       author_email='phillip@marlow1.com',
       packages=['ci_secrets'],
-	  install_requires=["detect_secrets"])
+	  install_requires=["detect_secrets"],
+	  entry_points={
+		'console_scripts': [
+            'ci_secrets = ci_secrets:main'
+        ]
+	  })
