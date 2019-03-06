@@ -17,27 +17,37 @@ def main():
 	set_log_level(args.log_level)
 	repo = Repo(args.path)
 	commit = repo.head.commit
+	finding_count = 0
 	while commit.hexsha != args.sinceCommit:
-		check_commit_for_secrets(commit)
+		finding_count += check_commit_for_secrets(commit)
 		commit = commit.parents[0]
+	print("Found {count} total findings.".format(count=finding_count))
+	if finding_count > 0:
+		return 1
+	return 0
 
 def check_commit_for_secrets(commit):
 	logger.info(("*"*20)+commit.hexsha+("*"*20))
+	finding_count = 0
 	for diffs in commit.diff(commit.parents[0], create_patch=True):
-		check_diff_for_secrets(diffs.diff, commit.hexsha)
+		finding_count += check_diff_for_secrets(diffs.diff, commit.hexsha)
+	return finding_count
 
 def check_diff_for_secrets(diff, commit_sha):
 	diff_string = diff.decode('utf-8')
 	logger.debug("DIFF: "+diff_string)
 	plugins = [detect_secrets.plugins.aws.AWSKeyDetector(),detect_secrets.plugins.private_key.PrivateKeyDetector()]
-	_scan_string(diff_string, plugins, commit_sha)
+	return _scan_string(diff_string, plugins, commit_sha)
 
 def _scan_string(line, plugins, commit_sha):
 	logger.debug("LINE: "+line)
+	finding_count = 0
 	for plugin in plugins:
 		results = plugin.analyze_string(line,0,'does not matter')
 		for result in results:
 			print("{type} ({hash}) at commit {commit}".format(type=result.type,hash=result.secret_hash,commit=commit_sha))
+			finding_count += 1
+	return finding_count
 
 def set_log_level(log_level):
 	if log_level is not None:
