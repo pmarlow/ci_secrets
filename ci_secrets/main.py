@@ -16,7 +16,7 @@ def main():
 	args = parser.parse_args()
 	set_log_level(args.log_level)
 	repo = Repo(args.path)
-	commit = repo.head.ref.commit
+	commit = repo.head.commit
 	while commit.hexsha != args.sinceCommit:
 		check_commit_for_secrets(commit)
 		commit = commit.parents[0]
