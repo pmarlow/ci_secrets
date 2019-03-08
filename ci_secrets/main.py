@@ -32,9 +32,10 @@ def main():
 		logger.warn(args.sinceCommit+" is not an ancestor of itself.")
 		return 0
 	finding_count = 0
-	# NEED TO SCAN 1 MORE COMMIT (now checking parents instead of commit)
-	while set(commit.parents).isdisjoint(common_ancestors):
+	continue_scanning = True
+	while continue_scanning:
 		finding_count += check_commit_for_secrets(commit)
+		continue_scanning = set(commit.parents).isdisjoint(common_ancestors)
 		commit = commit.parents[0]
 	print("Found {count} total findings.".format(count=finding_count))
 	if finding_count > 0:
