@@ -15,17 +15,23 @@ def main():
 	parser.add_argument("--log", dest="log_level")
 	args = parser.parse_args()
 	set_log_level(args.log_level)
+	if args.sinceCommit is None:
+		logger.error("--since is a required argument.")
+		return 1
+	if args.sinceCommit == "0000000000000000000000000000000000000000":
+		logger.warn("0000000000000000000000000000000000000000 is an invalid commit. Is this a new branch?")
+		return 0
 	repo = Repo(args.path)
 	commit = repo.head.commit
 	common_ancestors = set(repo.merge_base(commit, args.sinceCommit, "--all"))
 	logger.info("Found common ancestors: "+', '.join([common_ancestor.hexsha for common_ancestor in common_ancestors]))
-	finding_count = 0
 	if len(common_ancestors) == 0:
 		logger.warn("There are no common ancestors between these commits: "+commit.hexsha+", "+str(args.sinceCommit))
 		return 0
 	if commit in common_ancestors:
 		logger.warn(args.sinceCommit+" is not an ancestor of itself.")
 		return 0
+	finding_count = 0
 	# NEED TO SCAN 1 MORE COMMIT (now checking parents instead of commit)
 	while set(commit.parents).isdisjoint(common_ancestors):
 		finding_count += check_commit_for_secrets(commit)
