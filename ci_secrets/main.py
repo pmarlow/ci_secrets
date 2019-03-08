@@ -17,10 +17,10 @@ def main():
 	set_log_level(args.log_level)
 	repo = Repo(args.path)
 	commit = repo.head.commit
-	common_ancestor = repo.merge_base(commit, args.sinceCommit)[0]
-	logger.info("Found common ancestor: "+common_ancestor.hexsha)
+	common_ancestors = set(repo.merge_base(commit, args.sinceCommit, "--all"))
+	logger.info("Found common ancestors: "+', '.join([common_ancestor.hexsha for common_ancestor in common_ancestors]))
 	finding_count = 0
-	while commit != common_ancestor:
+	while set(commit.parents).isdisjoint(common_ancestors):
 		finding_count += check_commit_for_secrets(commit)
 		commit = commit.parents[0]
 	print("Found {count} total findings.".format(count=finding_count))
