@@ -11,27 +11,28 @@ def main():
 	logger.debug("Hello")
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--path", dest="path")
-	parser.add_argument("--since", dest="sinceCommit")
+	parser.add_argument("--since", dest="since_commit")
 	parser.add_argument("--log", dest="log_level")
 	parser.add_argument("--includeDelete", action="store_true", dest="include_delete")
 	args = parser.parse_args()
 	set_log_level(args.log_level)
-	if args.sinceCommit is None:
+	if args.since_commit is None:
 		logger.error("--since is a required argument.")
 		return 1
-	if args.sinceCommit == "0000000000000000000000000000000000000000":
+	if args.since_commit == "0000000000000000000000000000000000000000":
 		logger.warn("0000000000000000000000000000000000000000 is an invalid commit. Is this a new branch?")
+		logger.warn("Assuming the new branch is only 1 commit ahead. This scan may miss credentials.")
 		# Assume this is a new branch and make a best guess that it's only a single commit ahead.
-		args.sinceCommit = "HEAD^"
+		args.since_commit = "HEAD^"
 	repo = Repo(args.path)
 	commit = repo.head.commit
-	common_ancestors = set(repo.merge_base(commit, args.sinceCommit, "--all"))
+	common_ancestors = set(repo.merge_base(commit, args.since_commit, "--all"))
 	logger.info("Found common ancestors: "+', '.join([common_ancestor.hexsha for common_ancestor in common_ancestors]))
 	if len(common_ancestors) == 0:
-		logger.warn("There are no common ancestors between these commits: "+commit.hexsha+", "+str(args.sinceCommit))
+		logger.warn("There are no common ancestors between these commits: "+commit.hexsha+", "+str(args.since_commit))
 		return 0
 	if commit in common_ancestors:
-		logger.warn(args.sinceCommit+" is not an ancestor of itself.")
+		logger.warn(args.since_commit+" is not an ancestor of itself.")
 		return 0
 	finding_count = 0
 	continue_scanning = True
