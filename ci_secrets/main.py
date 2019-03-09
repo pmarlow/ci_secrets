@@ -13,6 +13,7 @@ def main():
 	parser.add_argument("--path", dest="path")
 	parser.add_argument("--since", dest="sinceCommit")
 	parser.add_argument("--log", dest="log_level")
+	parser.add_argument("--includeDelete", action="store_true", dest="include_delete")
 	args = parser.parse_args()
 	set_log_level(args.log_level)
 	if args.sinceCommit is None:
@@ -34,7 +35,7 @@ def main():
 	finding_count = 0
 	continue_scanning = True
 	while continue_scanning:
-		finding_count += check_commit_for_secrets(commit)
+		finding_count += check_commit_for_secrets(commit, args.include_delete)
 		continue_scanning = set(commit.parents).isdisjoint(common_ancestors)
 		commit = commit.parents[0]
 	print("Found {count} total findings.".format(count=finding_count))
@@ -42,11 +43,15 @@ def main():
 		return 1
 	return 0
 
-def check_commit_for_secrets(commit):
+def check_commit_for_secrets(commit, include_delete):
 	logger.info(("*"*20)+commit.hexsha+("*"*20))
 	finding_count = 0
-	for diffs in commit.diff(commit.parents[0], create_patch=True):
-		finding_count += check_diff_for_secrets(diffs.diff, commit.hexsha)
+	if include_delete:
+		diffs = commit.diff(commit.parents[0], None, True)
+	else:
+		diffs = commit.diff(commit.parents[0], None, True, diff_filter="d")
+	for diff in diffs:
+		finding_count += check_diff_for_secrets(diff.diff, commit.hexsha)
 	return finding_count
 
 def check_diff_for_secrets(diff, commit_sha):
