@@ -49,9 +49,9 @@ def check_commit_for_secrets(commit, include_delete):
 	logger.info(("*"*20)+commit.hexsha+("*"*20))
 	finding_count = 0
 	if include_delete:
-		diffs = commit.diff(commit.parents[0], None, True)
+		diffs = commit.parents[0].diff(commit, None, True)
 	else:
-		diffs = commit.diff(commit.parents[0], None, True, diff_filter="d")
+		diffs = commit.parents[0].diff(commit, None, True, diff_filter="d")
 	for diff in diffs:
 		finding_count += check_diff_for_secrets(diff.diff, commit.hexsha)
 	return finding_count
