@@ -21,7 +21,8 @@ def main():
 		return 1
 	if args.sinceCommit == "0000000000000000000000000000000000000000":
 		logger.warn("0000000000000000000000000000000000000000 is an invalid commit. Is this a new branch?")
-		return 0
+		# Assume this is a new branch and make a best guess that it's only a single commit ahead.
+		args.sinceCommit = "HEAD^"
 	repo = Repo(args.path)
 	commit = repo.head.commit
 	common_ancestors = set(repo.merge_base(commit, args.sinceCommit, "--all"))
