@@ -14,6 +14,7 @@ def main():
 	parser.add_argument("--since", dest="since_commit")
 	parser.add_argument("--log", dest="log_level")
 	parser.add_argument("--includeDelete", action="store_true", dest="include_delete")
+	parser.add_argument("--includesMergeCommit", action="store_true", dest="includes_merge_commit")
 	args = parser.parse_args()
 	set_log_level(args.log_level)
 	if args.since_commit is None:
@@ -39,7 +40,14 @@ def main():
 	while continue_scanning:
 		finding_count += check_commit_for_secrets(commit, args.include_delete)
 		continue_scanning = set(commit.parents).isdisjoint(common_ancestors)
-		commit = commit.parents[0]
+		if commit == repo.head.commit and args.includes_merge_commit and len(repo.head.commit.parents) > 1:
+			logger.info("Scanning pull request for branch including: {commit_sha}".format(commit_sha=commit.parents[1].hexsha))
+			# This is a merge commit for a pull request and we want to scan the new branch, not the old one.
+			commit = commit.parents[1]
+			# Don't stop scanning at the merge commit, wait last for the common ancestor before this merge.
+			continue_scanning = True
+		else:
+			commit = commit.parents[0]
 	print("Found {count} total findings.".format(count=finding_count))
 	if finding_count > 0:
 		return 1
