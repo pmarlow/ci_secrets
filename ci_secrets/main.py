@@ -1,14 +1,28 @@
 import argparse
 import logging
 from git import Repo
-import detect_secrets.plugins.aws
-import detect_secrets.plugins.private_key
+import detect_secrets.plugins
+import yaml
+import pkgutil
 
 logging.basicConfig(format='%(asctime)s %(message)s',level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 def main():
-	logger.debug("Hello")
+	logger.debug("Hello")	
+	with open(".ci_secrets.yml", 'r') as ymlfile:
+		cfg = yaml.load(ymlfile)
+	if 'log_level' in cfg.keys():
+		set_log_level(cfg['log_level'])
+	plugin_types = _get_plugins(cfg['plugins'].keys())
+	plugins = []
+	for plugin in plugin_types:
+		logger.debug("Configuring: {name}({param})".format(name=plugin.__name__,param=str(cfg['plugins'][plugin.__name__])))
+		if cfg['plugins'][plugin.__name__] != True:
+			plugins.append(plugin(cfg['plugins'][plugin.__name__]))
+		else:
+			plugins.append(plugin())
+	
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--path", dest="path")
 	parser.add_argument("--since", dest="since_commit")
@@ -38,7 +52,7 @@ def main():
 	finding_count = 0
 	continue_scanning = True
 	while continue_scanning:
-		finding_count += check_commit_for_secrets(commit, args.include_delete)
+		finding_count += check_commit_for_secrets(commit, args.include_delete, plugins)
 		continue_scanning = set(commit.parents).isdisjoint(common_ancestors)
 		if commit == repo.head.commit and args.includes_merge_commit and len(repo.head.commit.parents) > 1:
 			logger.info("Scanning pull request for branch including: {commit_sha}".format(commit_sha=commit.parents[1].hexsha))
@@ -53,7 +67,7 @@ def main():
 		return 1
 	return 0
 
-def check_commit_for_secrets(commit, include_delete):
+def check_commit_for_secrets(commit, include_delete, plugins):
 	logger.info(("*"*20)+commit.hexsha+("*"*20))
 	finding_count = 0
 	if include_delete:
@@ -61,13 +75,12 @@ def check_commit_for_secrets(commit, include_delete):
 	else:
 		diffs = commit.parents[0].diff(commit, None, True, diff_filter="d")
 	for diff in diffs:
-		finding_count += check_diff_for_secrets(diff.diff, commit.hexsha)
+		finding_count += check_diff_for_secrets(diff.diff, commit.hexsha, plugins)
 	return finding_count
 
-def check_diff_for_secrets(diff, commit_sha):
+def check_diff_for_secrets(diff, commit_sha, plugins):
 	diff_string = diff.decode('utf-8')
 	logger.debug("DIFF: "+diff_string)
-	plugins = [detect_secrets.plugins.aws.AWSKeyDetector(),detect_secrets.plugins.private_key.PrivateKeyDetector()]
 	return _scan_string(diff_string, plugins, commit_sha)
 
 def _scan_string(line, plugins, commit_sha):
@@ -86,3 +99,20 @@ def set_log_level(log_level):
 		if not isinstance(numeric_log_level, int):
 			raise ValueError('Invalid log level: %s' % log_level)
 		logger.setLevel(numeric_log_level)
+
+def _load_plugins():
+	for importer, modname, ispkg in pkgutil.walk_packages(detect_secrets.plugins.__path__,'detect_secrets.plugins.'):
+		__import__(modname)
+
+def _all_plugins(base):
+    return set(base.__subclasses__()).union(
+        [s for c in base.__subclasses__() for s in _all_plugins(c)])
+
+def _get_plugins(names):
+	_load_plugins()
+	available_plugins = _all_plugins(detect_secrets.plugins.base.BasePlugin)
+	plugins = []
+	for plugin in available_plugins:
+		if plugin.__name__ in names:
+			plugins.append(plugin)
+	return plugins
