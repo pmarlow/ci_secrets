@@ -1,0 +1,19 @@
+ci_secrets:
+  image: python:stretch
+  before_script:
+    - git clone https://gitlab.com/pmarlow/ci_secrets /tmp/ci_secrets
+    - pip install -e /tmp/ci_secrets
+  script:
+    - ci_secrets --since $CI_COMMIT_BEFORE_SHA --log INFO
+  except:
+    - merge_requests
+
+ci_secrets_merge:
+  image: python:stretch
+  before_script:
+    - git clone https://gitlab.com/pmarlow/ci_secrets /tmp/ci_secrets
+    - pip install -e /tmp/ci_secrets
+  script:
+    - ci_secrets --since origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME --log INFO
+  only:
+    - merge_requests
