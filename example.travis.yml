@@ -1,0 +1,12 @@
+language: python
+before_install:
+- echo -e "machine github.com\n  login $CI_USER_TOKEN" > ~/.netrc
+
+before_script:  
+    - git clone https://github.com/pmarlow/ci_secrets /tmp/ci_secrets
+    - pip install -e /tmp/ci_secrets
+script:
+    #If this is the first commit on a branch, use 0000000000000000000000000000000000000000 to match the behavior of GitLab CI.
+    - export COMMIT_RANGE=${TRAVIS_COMMIT_RANGE:-"0000000000000000000000000000000000000000"}
+    - export LAST_COMMIT=${COMMIT_RANGE%%.*}
+    - ci_secrets --since $LAST_COMMIT --includesMergeCommit --log INFO
